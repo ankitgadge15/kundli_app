@@ -7,6 +7,7 @@
     import 'result_screen.dart';
     import '../models/kundli_input_model.dart';
     import '../utils/coordinate_utils.dart';
+    import '../services/astrology_service.dart';
 
     class BirthDetailsScreen extends StatefulWidget {
     const BirthDetailsScreen({super.key});
@@ -164,8 +165,8 @@ void dispose() {
         }
     }
 
-    void generateKundli() {
-          double latitude;
+    Future<void> generateKundli() async {
+        double latitude;
         double longitude;
   if (nameController.text.trim().isEmpty) {
     showError("Please enter name");
@@ -252,12 +253,19 @@ void dispose() {
     latitude: latitude,
     longitude: longitude,
 );
+final astrologyService = AstrologyService();
+
+final kundliResult =
+    await astrologyService.generateKundli(
+      kundliInput,
+    );
 
   Navigator.push(
   context,
   MaterialPageRoute(
     builder: (_) => ResultScreen(
       kundliInput: kundliInput,
+      kundliResult: kundliResult,
     ),
   ),
 );

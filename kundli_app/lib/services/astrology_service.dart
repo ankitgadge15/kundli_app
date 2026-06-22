@@ -6,10 +6,10 @@ class AstrologyService {
     KundliInput input,
   ) async {
     return const KundliResult(
-      ascendant: "Coming Soon",
-      moonSign: "Coming Soon",
-      sunSign: "Coming Soon",
-      nakshatra: "Coming Soon",
+      ascendant: 'Aries',
+      moonSign: 'Taurus',
+      sunSign: 'Gemini',
+      nakshatra: 'Rohini',
       planets: [],
     );
   }

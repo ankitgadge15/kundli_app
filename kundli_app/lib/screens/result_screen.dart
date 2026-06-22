@@ -2,18 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'kundli_chart_screen.dart';
 import '../models/kundli_input_model.dart';
+import '../models/kundli_result_model.dart';
+// import '../services/astrology_service.dart';
 
 class ResultScreen extends StatelessWidget {
   final KundliInput kundliInput;
-
+  final KundliResult kundliResult;
   const ResultScreen({
     super.key,
     required this.kundliInput,
+    required this.kundliResult,
   });
 
   @override
   Widget build(BuildContext context) {
     String formattedDate = DateFormat('dd MMM yyyy').format(kundliInput.birthDateTime);
+    // final kundliResult = AstrologyService().generateKundli();
 
     return Scaffold(
       appBar: AppBar(
@@ -119,10 +123,10 @@ class ResultScreen extends StatelessWidget {
                     ),
                     const Divider(height: 24),
 
-                    _detailRow("Moon Sign", "Coming Soon"),
-                    _detailRow("Sun Sign", "Coming Soon"),
-                    _detailRow("Ascendant", "Coming Soon"),
-                    _detailRow("Nakshatra", "Coming Soon"),
+                    _detailRow("Moon Sign", kundliResult.moonSign),
+                    _detailRow("Sun Sign", kundliResult.sunSign),
+                    _detailRow("Ascendant", kundliResult.ascendant),
+                    _detailRow("Nakshatra", kundliResult.nakshatra),
                   ],
                 ),
               ),
