@@ -4,25 +4,42 @@ import '../models/location_model.dart';
 
 class LocationService {
   Future<List<LocationModel>> search(String query) async {
-    if (query.isEmpty) return [];
+    query = query.trim();
 
-    final url = Uri.parse(
-      'https://nominatim.openstreetmap.org/search'
-      '?q=$query'
-      '&countrycodes=in'
-      '&format=jsonv2'
-      '&limit=10',
-    );
+    if (query.length < 3) {
+      return [];
+    }
 
-    final response = await http.get(
-      url,
-      headers: {'User-Agent': 'kundli-app'},
-    );
+    try {
+      final url = Uri.https(
+        'nominatim.openstreetmap.org',
+        '/search',
+        {
+          'q': query,
+          'countrycodes': 'in',
+          'format': 'jsonv2',
+          'limit': '5',
+        },
+      );
 
-    final data = jsonDecode(response.body);
+      final response = await http.get(
+        url,
+        headers: {
+          'User-Agent': 'kundli-app',
+        },
+      );
 
-    return (data as List)
-        .map((e) => LocationModel.fromJson(e))
-        .toList();
+      if (response.statusCode != 200) {
+        return [];
+      }
+
+      final data = jsonDecode(response.body) as List;
+
+      return data
+          .map((e) => LocationModel.fromJson(e))
+          .toList();
+    } catch (e) {
+      return [];
+    }
   }
 }

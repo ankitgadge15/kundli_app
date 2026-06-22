@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 class ResultScreen extends StatelessWidget {
   final String name;
@@ -16,20 +17,180 @@ class ResultScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    String formattedDate = dob;
+
+    try {
+      formattedDate =
+          DateFormat('dd MMM yyyy').format(DateTime.parse(dob));
+    } catch (_) {}
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Kundli Result"),
+        title: const Text('Kundli Result'),
+        centerTitle: true,
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            Text("Name : $name"),
-            Text("DOB : $dob"),
-            Text("Birth Time : $birthTime"),
-            Text("Place : $place"),
+            // Header Card
+            Card(
+              elevation: 3,
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  children: [
+                    CircleAvatar(
+                      radius: 36,
+                      child: Text(
+                        name.isNotEmpty
+                            ? name[0].toUpperCase()
+                            : '?',
+                        style: const TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      name.toUpperCase(),
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "Kundli Summary",
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // Birth Details
+            Card(
+              elevation: 2,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.calendar_month),
+                        SizedBox(width: 8),
+                        Text(
+                          "Birth Details",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 24),
+
+                    _detailRow("Date", formattedDate),
+                    _detailRow("Time", birthTime),
+                    _detailRow("Place", place),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // Astrology Summary
+            Card(
+              elevation: 2,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.auto_awesome),
+                        SizedBox(width: 8),
+                        Text(
+                          "Astrology Summary",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 24),
+
+                    _detailRow("Moon Sign", "Coming Soon"),
+                    _detailRow("Sun Sign", "Coming Soon"),
+                    _detailRow("Ascendant", "Coming Soon"),
+                    _detailRow("Nakshatra", "Coming Soon"),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 32),
+
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        "Kundli Chart coming soon",
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.grid_view),
+                label: const Text("View Kundli Chart"),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: null,
+                icon: const Icon(Icons.picture_as_pdf),
+                label: const Text("Download PDF"),
+              ),
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  static Widget _detailRow(String title, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(value),
+          ),
+        ],
       ),
     );
   }
