@@ -1,11 +1,13 @@
+import 'planet.dart';
+
 class PlanetPosition {
-  final String planet;
-  final double longitude;
+  final Planet planet;
   final String sign;
+  final double longitude;
 
   const PlanetPosition({
     required this.planet,
-    required this.longitude,
     required this.sign,
+    required this.longitude,
   });
 }
