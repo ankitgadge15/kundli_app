@@ -5,6 +5,8 @@
     import '../models/location_model.dart';
     import '../services/location_service.dart';
     import 'result_screen.dart';
+    import '../models/kundli_input_model.dart';
+    import '../utils/coordinate_utils.dart';
 
     class BirthDetailsScreen extends StatefulWidget {
     const BirthDetailsScreen({super.key});
@@ -163,6 +165,8 @@ void dispose() {
     }
 
     void generateKundli() {
+          double latitude;
+        double longitude;
   if (nameController.text.trim().isEmpty) {
     showError("Please enter name");
     return;
@@ -184,6 +188,31 @@ void dispose() {
     return;
   }
 
+  if (locationMode == LocationInputMode.place && selectedLocation != null) {
+  latitude = selectedLatitude!;
+  longitude = selectedLongitude!;
+} else {
+  if (longDegController.text.isEmpty ||
+      longMinController.text.isEmpty ||
+      latDegController.text.isEmpty ||
+      latMinController.text.isEmpty) {
+    showError("Please enter coordinates");
+    return;
+  }
+
+  latitude = CoordinateUtils.toDecimal(
+    degree: int.parse(latDegController.text),
+    minute: int.parse(latMinController.text),
+    negative: latitudeDirection == "S",
+  );
+
+  longitude = CoordinateUtils.toDecimal(
+    degree: int.parse(longDegController.text),
+    minute: int.parse(longMinController.text),
+    negative: longitudeDirection == "W",
+  );
+}
+
   if (locationMode == LocationInputMode.coordinates) {
     if (longDegController.text.isEmpty ||
         longMinController.text.isEmpty ||
@@ -192,22 +221,46 @@ void dispose() {
       showError("Please enter coordinates");
       return;
     }
+    else {
+  latitude = CoordinateUtils.toDecimal(
+    degree: int.parse(latDegController.text),
+    minute: int.parse(latMinController.text),
+    negative: latitudeDirection == "S",
+  );
+
+  longitude = CoordinateUtils.toDecimal(
+    degree: int.parse(longDegController.text),
+    minute: int.parse(longMinController.text),
+    negative: longitudeDirection == "W",
+  );
+}
   }
 
+  final kundliInput = KundliInput(
+  name: nameController.text,
+  birthDateTime: DateTime(
+    selectedDate!.year,
+    selectedDate!.month,
+    selectedDate!.day,
+    selectedTime!.hour,
+    selectedTime!.minute,
+  ),
+  place: locationMode == LocationInputMode.place
+      ? selectedDisplayName ?? ""
+      : "${latDegController.text}°${latMinController.text}' $latitudeDirection, "
+        "${longDegController.text}°${longMinController.text}' $longitudeDirection",
+    latitude: latitude,
+    longitude: longitude,
+);
+
   Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => ResultScreen(
-        name: nameController.text,
-        dob: selectedDate!.toString(),
-        birthTime: selectedTime!.format(context),
-        place: locationMode == LocationInputMode.place
-    ? selectedDisplayName ?? ""
-    : "${latDegController.text}°${latMinController.text}' $latitudeDirection, "
-      "${longDegController.text}°${longMinController.text}' $longitudeDirection",
-      ),
+  context,
+  MaterialPageRoute(
+    builder: (_) => ResultScreen(
+      kundliInput: kundliInput,
     ),
-  );
+  ),
+);
 }
 
     @override

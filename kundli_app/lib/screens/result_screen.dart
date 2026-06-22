@@ -1,29 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'kundli_chart_screen.dart';
+import '../models/kundli_input_model.dart';
 
 class ResultScreen extends StatelessWidget {
-  final String name;
-  final String dob;
-  final String birthTime;
-  final String place;
+  final KundliInput kundliInput;
 
   const ResultScreen({
     super.key,
-    required this.name,
-    required this.dob,
-    required this.birthTime,
-    required this.place,
+    required this.kundliInput,
   });
 
   @override
   Widget build(BuildContext context) {
-    String formattedDate = dob;
-
-    try {
-      formattedDate =
-          DateFormat('dd MMM yyyy').format(DateTime.parse(dob));
-    } catch (_) {}
+    String formattedDate = DateFormat('dd MMM yyyy').format(kundliInput.birthDateTime);
 
     return Scaffold(
       appBar: AppBar(
@@ -44,8 +34,8 @@ class ResultScreen extends StatelessWidget {
                     CircleAvatar(
                       radius: 36,
                       child: Text(
-                        name.isNotEmpty
-                            ? name[0].toUpperCase()
+                        kundliInput.name.isNotEmpty
+                            ? kundliInput.name[0].toUpperCase()
                             : '?',
                         style: const TextStyle(
                           fontSize: 28,
@@ -55,7 +45,7 @@ class ResultScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      name.toUpperCase(),
+                      kundliInput.name.toUpperCase(),
                       style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
@@ -98,8 +88,8 @@ class ResultScreen extends StatelessWidget {
                     const Divider(height: 24),
 
                     _detailRow("Date", formattedDate),
-                    _detailRow("Time", birthTime),
-                    _detailRow("Place", place),
+                    _detailRow("Time", DateFormat('hh:mm a').format(kundliInput.birthDateTime),),
+                    _detailRow("Place", kundliInput.place),
                   ],
                 ),
               ),
