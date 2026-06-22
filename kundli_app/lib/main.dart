@@ -12,7 +12,7 @@ class KundliApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Kundli App',
+      title: 'SCS Kundli App',
       theme: ThemeData(
         useMaterial3: true,
       ),
