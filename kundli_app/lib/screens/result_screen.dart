@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'kundli_chart_screen.dart';
 
 class ResultScreen extends StatelessWidget {
   final String name;
@@ -142,15 +143,14 @@ class ResultScreen extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        "Kundli Chart coming soon",
-                      ),
-                    ),
-                  );
-                },
+  onPressed: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const KundliChartScreen(),
+      ),
+    );
+  },
                 icon: const Icon(Icons.grid_view),
                 label: const Text("View Kundli Chart"),
               ),

@@ -12,6 +12,10 @@
     @override
     State<BirthDetailsScreen> createState() => _BirthDetailsScreenState();
     }
+    enum LocationInputMode {
+  place,
+  coordinates,
+}
 
     class _BirthDetailsScreenState extends State<BirthDetailsScreen> {
     final TextEditingController nameController = TextEditingController();
@@ -22,6 +26,15 @@
     TimeOfDay? selectedTime;
     Timer? debounceTimer;
     LocationModel? selectedLocation;
+    LocationInputMode locationMode = LocationInputMode.place;
+    final longDegController = TextEditingController();
+    final longMinController = TextEditingController();
+
+    final latDegController = TextEditingController();
+    final latMinController = TextEditingController();
+
+    String longitudeDirection = "E";
+    String latitudeDirection = "N";
     bool isSearchingLocations = false;
     int searchVersion = 0;
 
@@ -30,12 +43,29 @@
     double? selectedLongitude;
     String placeInputValue = '';
 
+    void showError(String message) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(message),
+      backgroundColor: Colors.red,
+    ),
+  );
+}
+
     @override
-    void dispose() {
-        debounceTimer?.cancel();
-        nameController.dispose();
-        super.dispose();
-    }
+void dispose() {
+  debounceTimer?.cancel();
+
+  nameController.dispose();
+
+  longDegController.dispose();
+  longMinController.dispose();
+
+  latDegController.dispose();
+  latMinController.dispose();
+
+  super.dispose();
+}
 
     Future<void> searchLocations(String query) async {
     final trimmedQuery = query.trim();
@@ -133,18 +163,52 @@
     }
 
     void generateKundli() {
-        Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (_) => ResultScreen(
-            name: nameController.text,
-            dob: selectedDate?.toString() ?? "",
-            birthTime: selectedTime?.format(context) ?? "",
-            place: selectedDisplayName ?? placeInputValue,
-            ),
-        ),
-        );
+  if (nameController.text.trim().isEmpty) {
+    showError("Please enter name");
+    return;
+  }
+
+  if (selectedDate == null) {
+    showError("Please select date of birth");
+    return;
+  }
+
+  if (selectedTime == null) {
+    showError("Please select birth time");
+    return;
+  }
+
+  if (locationMode == LocationInputMode.place &&
+      selectedLocation == null) {
+    showError("Please select a place");
+    return;
+  }
+
+  if (locationMode == LocationInputMode.coordinates) {
+    if (longDegController.text.isEmpty ||
+        longMinController.text.isEmpty ||
+        latDegController.text.isEmpty ||
+        latMinController.text.isEmpty) {
+      showError("Please enter coordinates");
+      return;
     }
+  }
+
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => ResultScreen(
+        name: nameController.text,
+        dob: selectedDate!.toString(),
+        birthTime: selectedTime!.format(context),
+        place: locationMode == LocationInputMode.place
+    ? selectedDisplayName ?? ""
+    : "${latDegController.text}°${latMinController.text}' $latitudeDirection, "
+      "${longDegController.text}°${longMinController.text}' $longitudeDirection",
+      ),
+    ),
+  );
+}
 
     @override
     Widget build(BuildContext context) {
@@ -190,7 +254,40 @@
 
                 const SizedBox(height: 16),
 
-                Autocomplete<LocationModel>(
+const Text(
+  "Location Method",
+  style: TextStyle(
+    fontSize: 16,
+    fontWeight: FontWeight.bold,
+  ),
+),
+
+RadioListTile<LocationInputMode>(
+  title: const Text("Search Place"),
+  value: LocationInputMode.place,
+  groupValue: locationMode,
+  onChanged: (value) {
+    setState(() {
+      locationMode = value!;
+    });
+  },
+),
+
+RadioListTile<LocationInputMode>(
+  title: const Text("Enter Coordinates"),
+  value: LocationInputMode.coordinates,
+  groupValue: locationMode,
+  onChanged: (value) {
+    setState(() {
+      locationMode = value!;
+    });
+  },
+),
+
+const SizedBox(height: 16),
+
+                if (locationMode == LocationInputMode.place)
+  Autocomplete<LocationModel>(
   optionsBuilder: (TextEditingValue textEditingValue) {
     return locationSuggestions;
   },
@@ -288,6 +385,102 @@
     );
   },
 ),
+if (locationMode == LocationInputMode.coordinates)
+  Column(
+    children: [
+      Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: longDegController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: "Long Degree",
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextField(
+              controller: longMinController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: "Long Minute",
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          DropdownButton<String>(
+            value: longitudeDirection,
+            items: const [
+              DropdownMenuItem(
+                value: "E",
+                child: Text("E"),
+              ),
+              DropdownMenuItem(
+                value: "W",
+                child: Text("W"),
+              ),
+            ],
+            onChanged: (value) {
+              setState(() {
+                longitudeDirection = value!;
+              });
+            },
+          ),
+        ],
+      ),
+
+      const SizedBox(height: 16),
+
+      Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: latDegController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: "Lat Degree",
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextField(
+              controller: latMinController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: "Lat Minute",
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          DropdownButton<String>(
+            value: latitudeDirection,
+            items: const [
+              DropdownMenuItem(
+                value: "N",
+                child: Text("N"),
+              ),
+              DropdownMenuItem(
+                value: "S",
+                child: Text("S"),
+              ),
+            ],
+            onChanged: (value) {
+              setState(() {
+                latitudeDirection = value!;
+              });
+            },
+          ),
+        ],
+      ),
+    ],
+  ),
 
                 const SizedBox(height: 8),
 
