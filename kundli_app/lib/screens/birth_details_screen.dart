@@ -1,673 +1,656 @@
-    import 'dart:async';
+import 'dart:async';
+import 'package:flutter/material.dart';
+import '../models/location_model.dart';
+import '../services/location_service.dart';
+import 'result_screen.dart';
+import '../models/kundli_input_model.dart';
+import '../utils/coordinate_utils.dart';
+import '../services/astrology_service.dart';
 
-    import 'package:flutter/material.dart';
+enum LocationInputMode { place, coordinates }
 
-    import '../models/location_model.dart';
-    import '../services/location_service.dart';
-    import 'result_screen.dart';
-    import '../models/kundli_input_model.dart';
-    import '../utils/coordinate_utils.dart';
-    import '../services/astrology_service.dart';
+class BirthDetailsScreen extends StatefulWidget {
+  const BirthDetailsScreen({super.key});
 
-    class BirthDetailsScreen extends StatefulWidget {
-    const BirthDetailsScreen({super.key});
+  @override
+  State<BirthDetailsScreen> createState() => _BirthDetailsScreenState();
+}
 
-    @override
-    State<BirthDetailsScreen> createState() => _BirthDetailsScreenState();
+class _BirthDetailsScreenState extends State<BirthDetailsScreen> {
+  final TextEditingController nameController = TextEditingController();
+  final LocationService locationService = LocationService();
+  final List<LocationModel> locationSuggestions = [];
+
+  DateTime? selectedDate;
+  TimeOfDay? selectedTime;
+  Timer? debounceTimer;
+  LocationModel? selectedLocation;
+  LocationInputMode locationMode = LocationInputMode.place;
+
+  final longDegController = TextEditingController();
+  final longMinController = TextEditingController();
+  final latDegController  = TextEditingController();
+  final latMinController  = TextEditingController();
+
+  String longitudeDirection = 'E';
+  String latitudeDirection  = 'N';
+  bool isSearchingLocations = false;
+  int searchVersion = 0;
+
+  String? selectedDisplayName;
+  double? selectedLatitude;
+  double? selectedLongitude;
+  String placeInputValue = '';
+
+  double selectedTimezoneOffset = 5.5;
+  bool isCalculating = false;
+
+  final List<Map<String, dynamic>> timezoneOffsets = [
+    {'name': 'GMT-12:00 (IDLW)', 'value': -12.0},
+    {'name': 'GMT-11:00 (SST)',  'value': -11.0},
+    {'name': 'GMT-10:00 (HST)',  'value': -10.0},
+    {'name': 'GMT-09:30 (MIT)',  'value': -9.5},
+    {'name': 'GMT-09:00 (AKST)','value': -9.0},
+    {'name': 'GMT-08:00 (PST)',  'value': -8.0},
+    {'name': 'GMT-07:00 (MST)',  'value': -7.0},
+    {'name': 'GMT-06:00 (CST)',  'value': -6.0},
+    {'name': 'GMT-05:00 (EST)',  'value': -5.0},
+    {'name': 'GMT-04:00 (AST)',  'value': -4.0},
+    {'name': 'GMT-03:30 (NST)',  'value': -3.5},
+    {'name': 'GMT-03:00 (BRT)',  'value': -3.0},
+    {'name': 'GMT-02:00 (FNT)',  'value': -2.0},
+    {'name': 'GMT-01:00 (AZOT)','value': -1.0},
+    {'name': 'GMT+00:00 (UTC)',  'value':  0.0},
+    {'name': 'GMT+01:00 (CET)',  'value':  1.0},
+    {'name': 'GMT+02:00 (EET)',  'value':  2.0},
+    {'name': 'GMT+03:00 (MSK)',  'value':  3.0},
+    {'name': 'GMT+03:30 (IRT)',  'value':  3.5},
+    {'name': 'GMT+04:00 (GST)',  'value':  4.0},
+    {'name': 'GMT+04:30 (AFT)',  'value':  4.5},
+    {'name': 'GMT+05:00 (PKT)',  'value':  5.0},
+    {'name': 'GMT+05:30 (IST)',  'value':  5.5},
+    {'name': 'GMT+05:45 (NPT)',  'value':  5.75},
+    {'name': 'GMT+06:00 (BST)',  'value':  6.0},
+    {'name': 'GMT+06:30 (MMT)',  'value':  6.5},
+    {'name': 'GMT+07:00 (ICT)',  'value':  7.0},
+    {'name': 'GMT+08:00 (SGT)',  'value':  8.0},
+    {'name': 'GMT+09:00 (JST)',  'value':  9.0},
+    {'name': 'GMT+09:30 (ACST)','value':  9.5},
+    {'name': 'GMT+10:00 (AEST)','value': 10.0},
+    {'name': 'GMT+11:00 (SBT)',  'value': 11.0},
+    {'name': 'GMT+12:00 (NZST)','value': 12.0},
+    {'name': 'GMT+13:00 (TKT)',  'value': 13.0},
+    {'name': 'GMT+14:00 (LINT)','value': 14.0},
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    final localOffset = DateTime.now().timeZoneOffset.inMinutes / 60.0;
+    selectedTimezoneOffset = localOffset;
+    if (!timezoneOffsets.any((e) => e['value'] == localOffset)) {
+      final sign  = localOffset >= 0 ? '+' : '-';
+      final abs   = localOffset.abs();
+      final h     = abs.floor();
+      final m     = ((abs - h) * 60).round().toString().padLeft(2, '0');
+      timezoneOffsets.add({'name': 'GMT$sign$h:$m (Local)', 'value': localOffset});
+      timezoneOffsets.sort((a, b) =>
+          (a['value'] as double).compareTo(b['value'] as double));
     }
-    enum LocationInputMode {
-  place,
-  coordinates,
-}
+  }
 
-    class _BirthDetailsScreenState extends State<BirthDetailsScreen> {
-    final TextEditingController nameController = TextEditingController();
-    final LocationService locationService = LocationService();
-    final List<LocationModel> locationSuggestions = [];
+  @override
+  void dispose() {
+    debounceTimer?.cancel();
+    nameController.dispose();
+    longDegController.dispose();
+    longMinController.dispose();
+    latDegController.dispose();
+    latMinController.dispose();
+    super.dispose();
+  }
 
-    DateTime? selectedDate;
-    TimeOfDay? selectedTime;
-    Timer? debounceTimer;
-    LocationModel? selectedLocation;
-    LocationInputMode locationMode = LocationInputMode.place;
-    final longDegController = TextEditingController();
-    final longMinController = TextEditingController();
+  void showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red.shade700),
+    );
+  }
 
-    final latDegController = TextEditingController();
-    final latMinController = TextEditingController();
-
-    String longitudeDirection = "E";
-    String latitudeDirection = "N";
-    bool isSearchingLocations = false;
-    int searchVersion = 0;
-
-    String? selectedDisplayName;
-    double? selectedLatitude;
-    double? selectedLongitude;
-    String placeInputValue = '';
-
-    double selectedTimezoneOffset = 5.5; // Default to IST (+5:30)
-    bool isCalculating = false;
-
-    final List<Map<String, dynamic>> timezoneOffsets = [
-      {"name": "GMT-12:00 (IDLW)", "value": -12.0},
-      {"name": "GMT-11:00 (SST)", "value": -11.0},
-      {"name": "GMT-10:00 (HST)", "value": -10.0},
-      {"name": "GMT-09:30 (MIT)", "value": -9.5},
-      {"name": "GMT-09:00 (AKST)", "value": -9.0},
-      {"name": "GMT-08:00 (PST)", "value": -8.0},
-      {"name": "GMT-07:00 (MST)", "value": -7.0},
-      {"name": "GMT-06:00 (CST)", "value": -6.0},
-      {"name": "GMT-05:00 (EST)", "value": -5.0},
-      {"name": "GMT-04:00 (AST)", "value": -4.0},
-      {"name": "GMT-03:30 (NST)", "value": -3.5},
-      {"name": "GMT-03:00 (BRT)", "value": -3.0},
-      {"name": "GMT-02:00 (FNT)", "value": -2.0},
-      {"name": "GMT-01:00 (AZOT)", "value": -1.0},
-      {"name": "GMT+00:00 (GMT/UTC)", "value": 0.0},
-      {"name": "GMT+01:00 (CET)", "value": 1.0},
-      {"name": "GMT+02:00 (EET)", "value": 2.0},
-      {"name": "GMT+03:00 (MSK)", "value": 3.0},
-      {"name": "GMT+03:30 (IRT)", "value": 3.5},
-      {"name": "GMT+04:00 (GST)", "value": 4.0},
-      {"name": "GMT+04:30 (AFT)", "value": 4.5},
-      {"name": "GMT+05:00 (PKT)", "value": 5.0},
-      {"name": "GMT+05:30 (IST)", "value": 5.5},
-      {"name": "GMT+05:45 (NPT)", "value": 5.75},
-      {"name": "GMT+06:00 (BST)", "value": 6.0},
-      {"name": "GMT+06:30 (MMT)", "value": 6.5},
-      {"name": "GMT+07:00 (ICT)", "value": 7.0},
-      {"name": "GMT+08:00 (SGT/CST)", "value": 8.0},
-      {"name": "GMT+08:45 (ACWST)", "value": 8.75},
-      {"name": "GMT+09:00 (JST)", "value": 9.0},
-      {"name": "GMT+09:30 (ACST)", "value": 9.5},
-      {"name": "GMT+10:00 (AEST)", "value": 10.0},
-      {"name": "GMT+10:30 (LHST)", "value": 10.5},
-      {"name": "GMT+11:00 (SBT)", "value": 11.0},
-      {"name": "GMT+11:30 (NFT)", "value": 11.5},
-      {"name": "GMT+12:00 (NZST)", "value": 12.0},
-      {"name": "GMT+12:45 (CHAST)", "value": 12.75},
-      {"name": "GMT+13:00 (TKT)", "value": 13.0},
-      {"name": "GMT+14:00 (LINT)", "value": 14.0},
-    ];
-
-    @override
-    void initState() {
-      super.initState();
-      final localOffset = DateTime.now().timeZoneOffset.inMinutes / 60.0;
-      selectedTimezoneOffset = localOffset;
-      if (!timezoneOffsets.any((element) => element["value"] == localOffset)) {
-        final sign = localOffset >= 0 ? "+" : "-";
-        final absVal = localOffset.abs();
-        final h = absVal.floor();
-        final m = ((absVal - h) * 60).round();
-        final mStr = m.toString().padLeft(2, '0');
-        final name = "GMT$sign$h:$mStr (Local)";
-        timezoneOffsets.add({"name": name, "value": localOffset});
-        timezoneOffsets.sort((a, b) => (a["value"] as double).compareTo(b["value"] as double));
-      }
-    }
-
-    void showError(String message) {
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(message),
-      backgroundColor: Colors.red,
-    ),
-  );
-}
-
-    @override
-void dispose() {
-  debounceTimer?.cancel();
-
-  nameController.dispose();
-
-  longDegController.dispose();
-  longMinController.dispose();
-
-  latDegController.dispose();
-  latMinController.dispose();
-
-  super.dispose();
-}
-
-    Future<void> searchLocations(String query) async {
-    final trimmedQuery = query.trim();
-
-    if (trimmedQuery.length < 3) {
-        debounceTimer?.cancel();
-
-        setState(() {
+  Future<void> searchLocations(String query) async {
+    final trimmed = query.trim();
+    if (trimmed.length < 2) {
+      debounceTimer?.cancel();
+      setState(() {
         locationSuggestions.clear();
         isSearchingLocations = false;
-        });
-
-        return;
-    }
-
-    final currentVersion = ++searchVersion;
-
-    debounceTimer?.cancel();
-
-    debounceTimer = Timer(const Duration(milliseconds: 500), () async {
-        if (!mounted) return;
-
-        setState(() {
-        isSearchingLocations = true;
-        });
-
-        try {
-        final results = await locationService.search(trimmedQuery);
-
-        if (!mounted) return;
-
-        if (currentVersion != searchVersion ||
-            placeInputValue.trim() != trimmedQuery) {
-            return;
-        }
-
-        setState(() {
-            locationSuggestions
-            ..clear()
-            ..addAll(results);
-            isSearchingLocations = false;
-        });
-        } catch (_) {
-        if (!mounted) return;
-
-        setState(() {
-            locationSuggestions.clear();
-            isSearchingLocations = false;
-        });
-        }
-    });
-    }
-
-    void selectLocation(LocationModel location) {
-    debounceTimer?.cancel();
-
-    setState(() {
-        selectedLocation = location;
-        selectedDisplayName = location.displayName;
-        selectedLatitude = location.latitude;
-        selectedLongitude = location.longitude;
-        placeInputValue = location.displayName;
-
-        locationSuggestions.clear();
-        isSearchingLocations = false;
-    });
-    }
-
-    Future<void> pickDate() async {
-        final date = await showDatePicker(
-        context: context,
-        firstDate: DateTime(1900),
-        lastDate: DateTime.now(),
-        initialDate: DateTime.now(),
-        );
-
-        if (date != null) {
-        setState(() {
-            selectedDate = date;
-        });
-        }
-    }
-
-    Future<void> pickTime() async {
-        final time = await showTimePicker(
-        context: context,
-        initialTime: TimeOfDay.now(),
-        );
-
-        if (time != null) {
-        setState(() {
-            selectedTime = time;
-        });
-        }
-    }
-
-    Future<void> generateKundli() async {
-        if (isCalculating) return;
-
-        double latitude;
-        double longitude;
-  if (nameController.text.trim().isEmpty) {
-    showError("Please enter name");
-    return;
-  }
-
-  if (selectedDate == null) {
-    showError("Please select date of birth");
-    return;
-  }
-
-  if (selectedTime == null) {
-    showError("Please select birth time");
-    return;
-  }
-
-  if (locationMode == LocationInputMode.place &&
-      selectedLocation == null) {
-    showError("Please select a place");
-    return;
-  }
-
-  if (locationMode == LocationInputMode.place && selectedLocation != null) {
-  latitude = selectedLatitude!;
-  longitude = selectedLongitude!;
-} else {
-  if (longDegController.text.isEmpty ||
-      longMinController.text.isEmpty ||
-      latDegController.text.isEmpty ||
-      latMinController.text.isEmpty) {
-    showError("Please enter coordinates");
-    return;
-  }
-
-  latitude = CoordinateUtils.toDecimal(
-    degree: int.parse(latDegController.text),
-    minute: int.parse(latMinController.text),
-    negative: latitudeDirection == "S",
-  );
-
-  longitude = CoordinateUtils.toDecimal(
-    degree: int.parse(longDegController.text),
-    minute: int.parse(longMinController.text),
-    negative: longitudeDirection == "W",
-  );
-}
-
-  if (locationMode == LocationInputMode.coordinates) {
-    if (longDegController.text.isEmpty ||
-        longMinController.text.isEmpty ||
-        latDegController.text.isEmpty ||
-        latMinController.text.isEmpty) {
-      showError("Please enter coordinates");
+      });
       return;
     }
-    else {
-  latitude = CoordinateUtils.toDecimal(
-    degree: int.parse(latDegController.text),
-    minute: int.parse(latMinController.text),
-    negative: latitudeDirection == "S",
-  );
 
-  longitude = CoordinateUtils.toDecimal(
-    degree: int.parse(longDegController.text),
-    minute: int.parse(longMinController.text),
-    negative: longitudeDirection == "W",
-  );
-}
+    final version = ++searchVersion;
+    debounceTimer?.cancel();
+    debounceTimer = Timer(const Duration(milliseconds: 300), () async {
+      if (!mounted) return;
+      setState(() => isSearchingLocations = true);
+      try {
+        final results = await locationService.search(trimmed);
+        if (!mounted || version != searchVersion) return;
+        setState(() {
+          locationSuggestions
+            ..clear()
+            ..addAll(results);
+          isSearchingLocations = false;
+        });
+      } catch (_) {
+        if (!mounted) return;
+        setState(() {
+          locationSuggestions.clear();
+          isSearchingLocations = false;
+        });
+      }
+    });
   }
 
-  setState(() {
-    isCalculating = true;
-  });
+  void selectLocation(LocationModel location) {
+    debounceTimer?.cancel();
+    setState(() {
+      selectedLocation    = location;
+      selectedDisplayName = location.displayName;
+      selectedLatitude    = location.latitude;
+      selectedLongitude   = location.longitude;
+      placeInputValue     = location.displayName;
+      locationSuggestions.clear();
+      isSearchingLocations = false;
+    });
+  }
 
-  try {
-    final kundliInput = KundliInput(
-      name: nameController.text,
-      birthDateTime: DateTime(
-        selectedDate!.year,
-        selectedDate!.month,
-        selectedDate!.day,
-        selectedTime!.hour,
-        selectedTime!.minute,
-      ),
-      timezoneOffset: selectedTimezoneOffset,
-      place: locationMode == LocationInputMode.place
-          ? selectedDisplayName ?? ""
-          : "${latDegController.text}°${latMinController.text}' $latitudeDirection, "
-            "${longDegController.text}°${longMinController.text}' $longitudeDirection",
-      latitude: latitude,
-      longitude: longitude,
+  Future<void> pickDate() async {
+    final date = await showDatePicker(
+      context: context,
+      firstDate:   DateTime(1900),
+      lastDate:    DateTime.now(),
+      initialDate: selectedDate ?? DateTime(1990),
     );
+    if (date != null) setState(() => selectedDate = date);
+  }
 
-    final astrologyService = AstrologyService();
-    final kundliResult = await astrologyService.generateKundli(kundliInput);
+  Future<void> pickTime() async {
+    final time = await showTimePicker(
+      context: context,
+      initialTime: selectedTime ?? TimeOfDay.now(),
+    );
+    if (time != null) setState(() => selectedTime = time);
+  }
 
-    if (!mounted) return;
+  Future<void> generateKundli() async {
+    if (isCalculating) return;
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ResultScreen(
-          kundliInput: kundliInput,
-          kundliResult: kundliResult,
+    if (nameController.text.trim().isEmpty) { showError('Please enter name'); return; }
+    if (selectedDate == null)  { showError('Please select date of birth'); return; }
+    if (selectedTime == null)  { showError('Please select birth time'); return; }
+    if (locationMode == LocationInputMode.place && selectedLocation == null) {
+      showError('Please select a place from suggestions'); return;
+    }
+
+    double latitude, longitude;
+
+    if (locationMode == LocationInputMode.place) {
+      latitude  = selectedLatitude!;
+      longitude = selectedLongitude!;
+    } else {
+      if (latDegController.text.isEmpty || latMinController.text.isEmpty ||
+          longDegController.text.isEmpty || longMinController.text.isEmpty) {
+        showError('Please enter all coordinate fields'); return;
+      }
+      latitude  = CoordinateUtils.toDecimal(
+        degree: int.parse(latDegController.text),
+        minute: int.parse(latMinController.text),
+        negative: latitudeDirection == 'S',
+      );
+      longitude = CoordinateUtils.toDecimal(
+        degree: int.parse(longDegController.text),
+        minute: int.parse(longMinController.text),
+        negative: longitudeDirection == 'W',
+      );
+    }
+
+    setState(() => isCalculating = true);
+    try {
+      final kundliInput = KundliInput(
+        name: nameController.text.trim(),
+        birthDateTime: DateTime(
+          selectedDate!.year, selectedDate!.month, selectedDate!.day,
+          selectedTime!.hour, selectedTime!.minute,
         ),
-      ),
-    );
-  } catch (e) {
-    showError("Error generating Kundli: $e");
-  } finally {
-    if (mounted) {
-      setState(() {
-        isCalculating = false;
-      });
+        timezoneOffset: selectedTimezoneOffset,
+        place: locationMode == LocationInputMode.place
+            ? selectedDisplayName ?? ''
+            : '${latDegController.text}°${latMinController.text}\' $latitudeDirection, '
+              '${longDegController.text}°${longMinController.text}\' $longitudeDirection',
+        latitude:  latitude,
+        longitude: longitude,
+      );
+
+      final result = await AstrologyService().generateKundli(kundliInput);
+      if (!mounted) return;
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ResultScreen(
+            kundliInput:  kundliInput,
+            kundliResult: result,
+          ),
+        ),
+      );
+    } catch (e) {
+      showError('Error generating Kundli: $e');
+    } finally {
+      if (mounted) setState(() => isCalculating = false);
     }
   }
-}
 
-    @override
-    Widget build(BuildContext context) {
-        return Scaffold(
-        appBar: AppBar(
-            title: const Text("Birth Details"),
-            centerTitle: true,
-        ),
-        body: Padding(
-            padding: const EdgeInsets.all(16),
-            child: ListView(
-            children: [
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Scaffold(
+      body: CustomScrollView(
+        slivers: [
+          // ── Fancy header ──────────────────────────────────────────────────
+          SliverAppBar(
+            expandedHeight: 200,
+            pinned: true,
+            flexibleSpace: FlexibleSpaceBar(
+              background: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF4A148C), Color(0xFF1A1030)],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                ),
+                child: SafeArea(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(height: 16),
+                      const Text('🔯', style: TextStyle(fontSize: 48)),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Vedic Kundli',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                      Text(
+                        'Enter your birth details',
+                        style: TextStyle(
+                          color: Colors.purple.shade200,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              title: const Text('Birth Details',
+                  style: TextStyle(color: Colors.white, fontSize: 18)),
+              collapseMode: CollapseMode.fade,
+            ),
+          ),
+
+          // ── Form ──────────────────────────────────────────────────────────
+          SliverPadding(
+            padding: const EdgeInsets.all(20),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+
+                // Name
+                _sectionLabel('Personal Info'),
+                const SizedBox(height: 10),
                 TextField(
-                controller: nameController,
-                textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(
-                    labelText: "Name",
-                    border: OutlineInputBorder(),
-                ),
-                ),
-
-                const SizedBox(height: 16),
-
-                FilledButton.tonal(
-                onPressed: pickDate,
-                child: Text(
-                    selectedDate == null
-                        ? "Select Date of Birth"
-                        : selectedDate.toString().split(" ")[0],
-                ),
+                  controller: nameController,
+                  textInputAction: TextInputAction.next,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                    labelText: 'Full Name',
+                    prefixIcon: Icon(Icons.person_outline),
+                  ),
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
+                _sectionLabel('Date & Time of Birth'),
+                const SizedBox(height: 10),
 
-                FilledButton.tonal(
-                onPressed: pickTime,
-                child: Text(
-                    selectedTime == null
-                        ? "Select Birth Time"
-                        : selectedTime!.format(context),
-                ),
+                // Date picker
+                _pickButton(
+                  icon: Icons.calendar_today_outlined,
+                  label: selectedDate == null
+                      ? 'Select Date of Birth'
+                      : '${selectedDate!.day} / ${selectedDate!.month} / ${selectedDate!.year}',
+                  onTap: pickDate,
+                  isSet: selectedDate != null,
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
+
+                // Time picker
+                _pickButton(
+                  icon: Icons.access_time_outlined,
+                  label: selectedTime == null
+                      ? 'Select Birth Time'
+                      : selectedTime!.format(context),
+                  onTap: pickTime,
+                  isSet: selectedTime != null,
+                ),
+
+                const SizedBox(height: 24),
+                _sectionLabel('Timezone'),
+                const SizedBox(height: 10),
 
                 DropdownButtonFormField<double>(
                   value: selectedTimezoneOffset,
+                  dropdownColor: const Color(0xFF241840),
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
                   decoration: const InputDecoration(
-                    labelText: "Timezone Offset",
-                    border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.public),
+                    labelText: 'Timezone Offset',
                   ),
-                  items: timezoneOffsets.map((offset) {
-                    return DropdownMenuItem<double>(
-                      value: offset["value"] as double,
-                      child: Text(offset["name"] as String),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() {
-                        selectedTimezoneOffset = value;
-                      });
-                    }
+                  items: timezoneOffsets.map((tz) => DropdownMenuItem<double>(
+                    value: tz['value'] as double,
+                    child: Text(tz['name'] as String),
+                  )).toList(),
+                  onChanged: (v) {
+                    if (v != null) setState(() => selectedTimezoneOffset = v);
                   },
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
+                _sectionLabel('Place of Birth'),
+                const SizedBox(height: 10),
 
-const Text(
-  "Location Method",
-  style: TextStyle(
-    fontSize: 16,
-    fontWeight: FontWeight.bold,
-  ),
-),
-
-RadioListTile<LocationInputMode>(
-  title: const Text("Search Place"),
-  value: LocationInputMode.place,
-  groupValue: locationMode,
-  onChanged: (value) {
-    setState(() {
-      locationMode = value!;
-    });
-  },
-),
-
-RadioListTile<LocationInputMode>(
-  title: const Text("Enter Coordinates"),
-  value: LocationInputMode.coordinates,
-  groupValue: locationMode,
-  onChanged: (value) {
-    setState(() {
-      locationMode = value!;
-    });
-  },
-),
-
-const SizedBox(height: 16),
-
-                if (locationMode == LocationInputMode.place)
-  Autocomplete<LocationModel>(
-  optionsBuilder: (TextEditingValue textEditingValue) {
-    return locationSuggestions;
-  },
-  displayStringForOption: (LocationModel option) =>
-      option.displayName,
-  onSelected: selectLocation,
-  fieldViewBuilder: (
-    BuildContext context,
-    TextEditingController fieldController,
-    FocusNode focusNode,
-    VoidCallback onFieldSubmitted,
-  ) {
-    if (placeInputValue.isNotEmpty &&
-        fieldController.text != placeInputValue) {
-      fieldController.text = placeInputValue;
-    }
-
-    return TextField(
-      controller: fieldController,
-      focusNode: focusNode,
-      textInputAction: TextInputAction.search,
-      decoration: InputDecoration(
-        labelText: "Place of Birth",
-        hintText: "Type at least 3 characters",
-        border: const OutlineInputBorder(),
-        suffixIcon: isSearchingLocations
-            ? const Padding(
-                padding: EdgeInsets.all(12),
-                child: SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
+                // Location mode toggle
+                Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF241840),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.purple.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      _modeTab('Search Place', LocationInputMode.place),
+                      _modeTab('Coordinates',  LocationInputMode.coordinates),
+                    ],
                   ),
                 ),
-              )
-            : const Icon(Icons.place_outlined),
-      ),
-      onChanged: (value) {
-        placeInputValue = value;
 
-        if (selectedLocation != null &&
-            value != selectedLocation!.displayName) {
-          selectedLocation = null;
-          selectedDisplayName = null;
-          selectedLatitude = null;
-          selectedLongitude = null;
-        }
+                const SizedBox(height: 12),
 
-        searchLocations(value);
-      },
-      onSubmitted: (_) => onFieldSubmitted(),
-    );
-  },
-  optionsViewBuilder: (
-    BuildContext context,
-    AutocompleteOnSelected<LocationModel> onSelected,
-    Iterable<LocationModel> options,
-  ) {
-    final optionList = options.toList();
+                if (locationMode == LocationInputMode.place) ...[
+                  Autocomplete<LocationModel>(
+                    optionsBuilder: (_) => locationSuggestions,
+                    displayStringForOption: (o) => o.displayName,
+                    onSelected: selectLocation,
+                    fieldViewBuilder: (ctx, fieldCtrl, focusNode, onSubmit) {
+                      if (placeInputValue.isNotEmpty &&
+                          fieldCtrl.text != placeInputValue) {
+                        fieldCtrl.text = placeInputValue;
+                      }
+                      return TextField(
+                        controller: fieldCtrl,
+                        focusNode: focusNode,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          labelText: 'Search city / town',
+                          hintText: 'e.g. Goa, Mumbai, Delhi…',
+                          prefixIcon: const Icon(Icons.search),
+                          suffixIcon: isSearchingLocations
+                              ? const Padding(
+                                  padding: EdgeInsets.all(12),
+                                  child: SizedBox(
+                                    width: 18, height: 18,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2, color: Colors.purpleAccent),
+                                  ))
+                              : selectedLocation != null
+                                  ? const Icon(Icons.check_circle, color: Colors.greenAccent)
+                                  : const Icon(Icons.place_outlined),
+                        ),
+                        onChanged: (v) {
+                          placeInputValue = v;
+                          if (selectedLocation != null && v != selectedLocation!.displayName) {
+                            selectedLocation    = null;
+                            selectedDisplayName = null;
+                            selectedLatitude    = null;
+                            selectedLongitude   = null;
+                          }
+                          searchLocations(v);
+                        },
+                        onSubmitted: (_) => onSubmit(),
+                      );
+                    },
+                    optionsViewBuilder: (ctx, onSelected, options) {
+                      final list = options.toList();
+                      if (list.isEmpty) return const SizedBox.shrink();
+                      return Align(
+                        alignment: Alignment.topLeft,
+                        child: Material(
+                          color: const Color(0xFF241840),
+                          elevation: 8,
+                          borderRadius: BorderRadius.circular(12),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(
+                                maxHeight: 280, maxWidth: 700),
+                            child: ListView.separated(
+                              padding: EdgeInsets.zero,
+                              itemCount: list.length,
+                              separatorBuilder: (_, __) =>
+                                  Divider(height: 1, color: Colors.purple.withOpacity(0.2)),
+                              itemBuilder: (_, i) {
+                                final opt = list[i];
+                                return ListTile(
+                                  leading: const Icon(Icons.location_on_outlined,
+                                      color: Colors.purpleAccent, size: 20),
+                                  title: Text(
+                                    opt.displayName,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                        color: Colors.white, fontSize: 13),
+                                  ),
+                                  onTap: () => onSelected(opt),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
 
-    if (optionList.isEmpty) {
-      return const SizedBox.shrink();
-    }
+                if (locationMode == LocationInputMode.coordinates) ...[
+                  _coordRow(
+                    label: 'Longitude',
+                    degCtrl: longDegController,
+                    minCtrl: longMinController,
+                    direction: longitudeDirection,
+                    options: const ['E', 'W'],
+                    onDir: (v) => setState(() => longitudeDirection = v!),
+                  ),
+                  const SizedBox(height: 12),
+                  _coordRow(
+                    label: 'Latitude',
+                    degCtrl: latDegController,
+                    minCtrl: latMinController,
+                    direction: latitudeDirection,
+                    options: const ['N', 'S'],
+                    onDir: (v) => setState(() => latitudeDirection = v!),
+                  ),
+                ],
 
-    return Align(
-      alignment: Alignment.topLeft,
-      child: Material(
-        elevation: 8,
-        borderRadius: BorderRadius.circular(12),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            maxHeight: 250,
-            maxWidth: 700,
-          ),
-          child: ListView.builder(
-            padding: EdgeInsets.zero,
-            itemCount: optionList.length,
-            itemBuilder: (context, index) {
-              final option = optionList[index];
+                const SizedBox(height: 36),
 
-              return ListTile(
-                leading: const Icon(Icons.location_on_outlined),
-                title: Text(
-                  option.displayName,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                onTap: () => onSelected(option),
-              );
-            },
-          ),
-        ),
-      ),
-    );
-  },
-),
-if (locationMode == LocationInputMode.coordinates)
-  Column(
-    children: [
-      Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: longDegController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: "Long Degree",
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: TextField(
-              controller: longMinController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: "Long Minute",
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          DropdownButton<String>(
-            value: longitudeDirection,
-            items: const [
-              DropdownMenuItem(
-                value: "E",
-                child: Text("E"),
-              ),
-              DropdownMenuItem(
-                value: "W",
-                child: Text("W"),
-              ),
-            ],
-            onChanged: (value) {
-              setState(() {
-                longitudeDirection = value!;
-              });
-            },
-          ),
-        ],
-      ),
-
-      const SizedBox(height: 16),
-
-      Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: latDegController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: "Lat Degree",
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: TextField(
-              controller: latMinController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: "Lat Minute",
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          DropdownButton<String>(
-            value: latitudeDirection,
-            items: const [
-              DropdownMenuItem(
-                value: "N",
-                child: Text("N"),
-              ),
-              DropdownMenuItem(
-                value: "S",
-                child: Text("S"),
-              ),
-            ],
-            onChanged: (value) {
-              setState(() {
-                latitudeDirection = value!;
-              });
-            },
-          ),
-        ],
-      ),
-    ],
-  ),
-
-                const SizedBox(height: 8),
-
-                const SizedBox(height: 32),
-
+                // Generate button
                 SizedBox(
-                width: double.infinity,
-                child: FilledButton(
+                  width: double.infinity,
+                  height: 56,
+                  child: FilledButton(
                     onPressed: isCalculating ? null : generateKundli,
                     child: isCalculating
                         ? const SizedBox(
-                            height: 20,
-                            width: 20,
+                            width: 22, height: 22,
                             child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Text("Generate Kundli"),
+                                strokeWidth: 2.5, color: Colors.white))
+                        : const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.auto_awesome, size: 20),
+                              SizedBox(width: 10),
+                              Text('Generate Kundli',
+                                  style: TextStyle(
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                  ),
                 ),
-                ),
-            ],
+                const SizedBox(height: 32),
+              ]),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionLabel(String text) => Text(
+        text,
+        style: TextStyle(
+          color: Colors.purple.shade300,
+          fontWeight: FontWeight.bold,
+          fontSize: 13,
+          letterSpacing: 0.8,
         ),
-        );
-    }
-    }
+      );
+
+  Widget _pickButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    required bool isSet,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF241840),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSet
+                ? Colors.purple.withOpacity(0.7)
+                : Colors.purple.withOpacity(0.3),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(icon,
+                color: isSet ? Colors.purpleAccent : Colors.purple.shade300,
+                size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: isSet ? Colors.white : Colors.white54,
+                  fontSize: 15,
+                ),
+              ),
+            ),
+            Icon(Icons.chevron_right,
+                color: Colors.purple.shade400, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _modeTab(String label, LocationInputMode mode) {
+    final isActive = locationMode == mode;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => locationMode = mode),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isActive ? Colors.purple.shade700 : Colors.transparent,
+            borderRadius: BorderRadius.circular(11),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: isActive ? Colors.white : Colors.white54,
+              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              fontSize: 13,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _coordRow({
+    required String label,
+    required TextEditingController degCtrl,
+    required TextEditingController minCtrl,
+    required String direction,
+    required List<String> options,
+    required ValueChanged<String?> onDir,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: const TextStyle(color: Colors.white60, fontSize: 12)),
+        const SizedBox(height: 6),
+        Row(children: [
+          Expanded(
+            child: TextField(
+              controller: degCtrl,
+              keyboardType: TextInputType.number,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(labelText: 'Degrees'),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: TextField(
+              controller: minCtrl,
+              keyboardType: TextInputType.number,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(labelText: 'Minutes'),
+            ),
+          ),
+          const SizedBox(width: 10),
+          DropdownButton<String>(
+            value: direction,
+            dropdownColor: const Color(0xFF241840),
+            style: const TextStyle(color: Colors.white),
+            items: options
+                .map((o) => DropdownMenuItem(value: o, child: Text(o)))
+                .toList(),
+            onChanged: onDir,
+          ),
+        ]),
+      ],
+    );
+  }
+}

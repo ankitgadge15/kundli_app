@@ -8,6 +8,18 @@ import 'prediction_screen.dart';
 import '../models/kundli_input_model.dart';
 import '../models/kundli_result_model.dart';
 import '../models/planet.dart';
+import '../services/groq_service.dart';
+
+const _zodiacSigns = [
+  'Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo',
+  'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces',
+];
+
+int _signIndex(String sign) => _zodiacSigns.indexOf(sign);
+
+List<List<String>> _buildHousePlanets(int lagnaIdx) {
+  return []; // Simplified for PDF — planet placement is shown in house table
+}
 
 class ResultScreen extends StatefulWidget {
   final KundliInput kundliInput;
@@ -35,116 +47,270 @@ class _ResultScreenState extends State<ResultScreen> {
   }
 
   Future<void> _downloadPdf() async {
-    setState(() => _isGeneratingPdf = true);
-    try {
-      final pdf = pw.Document();
-      final formattedDate = DateFormat('dd MMM yyyy')
-          .format(widget.kundliInput.birthDateTime);
-      final formattedTime = DateFormat('hh:mm a')
-          .format(widget.kundliInput.birthDateTime);
+    // If we have a saved API key, offer to include predictions
+    bool includePredictions = false;
+    Map<String, String> predictions = {};
 
-      pdf.addPage(
-        pw.MultiPage(
-          pageFormat: PdfPageFormat.a4,
-          margin: const pw.EdgeInsets.all(40),
-          build: (pw.Context context) => [
-            // Header
-            pw.Container(
-              padding: const pw.EdgeInsets.all(20),
-              decoration: pw.BoxDecoration(
-                color: PdfColor.fromHex('4A148C'),
-                borderRadius: pw.BorderRadius.circular(8),
-              ),
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Text(
-                    'VEDIC KUNDLI REPORT',
-                    style: pw.TextStyle(
-                      color: PdfColors.white,
-                      fontSize: 22,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                  ),
-                  pw.SizedBox(height: 6),
-                  pw.Text(
-                    widget.kundliInput.name.toUpperCase(),
-                    style: pw.TextStyle(
-                      color: PdfColor.fromHex('CE93D8'),
-                      fontSize: 16,
-                    ),
-                  ),
-                ],
-              ),
+    if (_savedApiKey.isNotEmpty) {
+      final include = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF1A1030),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Include Year Predictions?',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          content: const Text(
+            'Do you want to include the 2026–2027 year prediction in the PDF?\n\n'
+            'This will call the Groq AI API and may take ~10 seconds.',
+            style: TextStyle(color: Colors.white70),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Skip', style: TextStyle(color: Colors.white54)),
             ),
-            pw.SizedBox(height: 24),
-
-            // Birth Details
-            _pdfSection('Birth Details', [
-              ['Date', formattedDate],
-              ['Time', formattedTime],
-              ['Place', widget.kundliInput.place],
-            ]),
-            pw.SizedBox(height: 16),
-
-            // Astrology Summary
-            _pdfSection('Astrology Summary', [
-              ['Ascendant (Lagna)', widget.kundliResult.ascendant],
-              ['Moon Sign (Rashi)', widget.kundliResult.moonSign],
-              ['Sun Sign', widget.kundliResult.sunSign],
-              ['Nakshatra', widget.kundliResult.nakshatra],
-            ]),
-            pw.SizedBox(height: 16),
-
-            // Planetary Positions Table
-            pw.Text('Planetary Positions',
-                style: pw.TextStyle(
-                    fontSize: 14, fontWeight: pw.FontWeight.bold)),
-            pw.SizedBox(height: 8),
-            pw.Table(
-              border: pw.TableBorder.all(
-                  color: PdfColors.grey300, width: 0.5),
-              columnWidths: {
-                0: const pw.FlexColumnWidth(2),
-                1: const pw.FlexColumnWidth(2),
-                2: const pw.FlexColumnWidth(3),
-              },
-              children: [
-                pw.TableRow(
-                  decoration:
-                      const pw.BoxDecoration(color: PdfColor.fromInt(0xFF6A1B9A)),
-                  children: [
-                    _pdfCell('Planet', header: true),
-                    _pdfCell('Sign', header: true),
-                    _pdfCell('Position', header: true),
-                  ],
-                ),
-                ...widget.kundliResult.planets.map((p) => pw.TableRow(
-                      children: [
-                        _pdfCell(_getPlanetName(p.planet)),
-                        _pdfCell(p.sign),
-                        _pdfCell(_formatDegrees(p.longitude)),
-                      ],
-                    )),
-              ],
-            ),
-            pw.SizedBox(height: 24),
-            pw.Text(
-              'Generated by Kundli App · ${DateFormat('dd MMM yyyy').format(DateTime.now())}',
-              style: const pw.TextStyle(color: PdfColors.grey500, fontSize: 9),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.purpleAccent,
+                  foregroundColor: Colors.white),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Include'),
             ),
           ],
         ),
       );
+      includePredictions = include ?? false;
+    }
+
+    setState(() => _isGeneratingPdf = true);
+
+    try {
+      // Fetch predictions if requested
+      if (includePredictions && _savedApiKey.isNotEmpty) {
+        try {
+          final service = GroqService(apiKey: _savedApiKey);
+          predictions = await service.generateYearPrediction(
+            input: widget.kundliInput,
+            result: widget.kundliResult,
+          );
+        } catch (_) {
+          includePredictions = false;
+        }
+      }
+
+      final pdf = pw.Document();
+      final formattedDate =
+          DateFormat('dd MMM yyyy').format(widget.kundliInput.birthDateTime);
+      final formattedTime =
+          DateFormat('hh:mm a').format(widget.kundliInput.birthDateTime);
+
+      // ── Page 1: Kundli Result ─────────────────────────────────────────────
+      pdf.addPage(pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(40),
+        build: (pw.Context ctx) => [
+          // Header
+          pw.Container(
+            padding: const pw.EdgeInsets.all(20),
+            decoration: pw.BoxDecoration(
+              color: PdfColor.fromHex('4A148C'),
+              borderRadius: pw.BorderRadius.circular(8),
+            ),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text('VEDIC KUNDLI REPORT',
+                    style: pw.TextStyle(
+                        color: PdfColors.white,
+                        fontSize: 22,
+                        fontWeight: pw.FontWeight.bold)),
+                pw.SizedBox(height: 6),
+                pw.Text(widget.kundliInput.name.toUpperCase(),
+                    style: pw.TextStyle(
+                        color: PdfColor.fromHex('CE93D8'), fontSize: 16)),
+              ],
+            ),
+          ),
+          pw.SizedBox(height: 24),
+
+          _pdfSection('Birth Details', [
+            ['Date', formattedDate],
+            ['Time', formattedTime],
+            ['Place', widget.kundliInput.place],
+          ]),
+          pw.SizedBox(height: 16),
+
+          _pdfSection('Astrology Summary', [
+            ['Ascendant (Lagna)', widget.kundliResult.ascendant],
+            ['Moon Sign (Rashi)', widget.kundliResult.moonSign],
+            ['Sun Sign', widget.kundliResult.sunSign],
+            ['Nakshatra', widget.kundliResult.nakshatra],
+          ]),
+          pw.SizedBox(height: 16),
+
+          // Planetary Positions table
+          pw.Text('Planetary Positions',
+              style: pw.TextStyle(
+                  fontSize: 14, fontWeight: pw.FontWeight.bold)),
+          pw.SizedBox(height: 8),
+          pw.Table(
+            border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+            columnWidths: const {
+              0: pw.FlexColumnWidth(2),
+              1: pw.FlexColumnWidth(2),
+              2: pw.FlexColumnWidth(3),
+            },
+            children: [
+              pw.TableRow(
+                decoration:
+                    const pw.BoxDecoration(color: PdfColor.fromInt(0xFF6A1B9A)),
+                children: [
+                  _pdfCell('Planet',   header: true),
+                  _pdfCell('Sign',     header: true),
+                  _pdfCell('Position', header: true),
+                ],
+              ),
+              ...widget.kundliResult.planets.map((p) => pw.TableRow(children: [
+                    _pdfCell(_getPlanetName(p.planet)),
+                    _pdfCell(p.sign),
+                    _pdfCell(_formatDegrees(p.longitude)),
+                  ])),
+            ],
+          ),
+        ],
+      ));
+
+      // ── Page 2: Kundli Chart (House Details) ─────────────────────────────
+      final lagnaIdx = _signIndex(widget.kundliResult.ascendant);
+      final housePlanets = _buildHousePlanets(lagnaIdx);
+
+      pdf.addPage(pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(40),
+        build: (pw.Context ctx) => [
+          pw.Container(
+            padding: const pw.EdgeInsets.all(16),
+            decoration: pw.BoxDecoration(
+              color: PdfColor.fromHex('4A148C'),
+              borderRadius: pw.BorderRadius.circular(8),
+            ),
+            child: pw.Text('KUNDLI CHART — HOUSE DETAILS',
+                style: pw.TextStyle(
+                    color: PdfColors.white,
+                    fontSize: 18,
+                    fontWeight: pw.FontWeight.bold)),
+          ),
+          pw.SizedBox(height: 20),
+
+          pw.Text(
+            'Ascendant (Lagna): ${widget.kundliResult.ascendant}  |  '
+            'Moon Sign: ${widget.kundliResult.moonSign}  |  '
+            'Nakshatra: ${widget.kundliResult.nakshatra}',
+            style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey700),
+          ),
+          pw.SizedBox(height: 16),
+
+          pw.Table(
+            border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+            columnWidths: const {
+              0: pw.FixedColumnWidth(50),
+              1: pw.FlexColumnWidth(2),
+              2: pw.FlexColumnWidth(3),
+            },
+            children: [
+              pw.TableRow(
+                decoration:
+                    const pw.BoxDecoration(color: PdfColor.fromInt(0xFF6A1B9A)),
+                children: [
+                  _pdfCell('House', header: true),
+                  _pdfCell('Sign',  header: true),
+                  _pdfCell('Planets in House', header: true),
+                ],
+              ),
+              ...List.generate(12, (i) {
+                final signIdx = (lagnaIdx + i) % 12;
+                final sign    = _zodiacSigns[signIdx];
+                final planets = housePlanets[i];
+                return pw.TableRow(children: [
+                  _pdfCell('${i + 1}'),
+                  _pdfCell(sign),
+                  _pdfCell(planets.isEmpty ? '—' : planets.join(', ')),
+                ]);
+              }),
+            ],
+          ),
+
+          pw.SizedBox(height: 20),
+          pw.Text(
+              'Planet abbreviations: Su=Sun, Mo=Moon, Ma=Mars, Me=Mercury, '
+              'Ju=Jupiter, Ve=Venus, Sa=Saturn, Ra=Rahu, Ke=Ketu, As=Ascendant',
+              style: const pw.TextStyle(
+                  fontSize: 9, color: PdfColors.grey600)),
+        ],
+      ));
+
+      // ── Page 3: Year Prediction ───────────────────────────────────────────
+      if (includePredictions && predictions.isNotEmpty) {
+        pdf.addPage(pw.MultiPage(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(40),
+          build: (pw.Context ctx) => [
+            pw.Container(
+              padding: const pw.EdgeInsets.all(16),
+              decoration: pw.BoxDecoration(
+                color: PdfColor.fromHex('4A148C'),
+                borderRadius: pw.BorderRadius.circular(8),
+              ),
+              child: pw.Text('YEAR PREDICTION 2026–2027',
+                  style: pw.TextStyle(
+                      color: PdfColors.white,
+                      fontSize: 18,
+                      fontWeight: pw.FontWeight.bold)),
+            ),
+            pw.SizedBox(height: 20),
+
+            ...predictions.entries.map((entry) => pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(entry.key,
+                        style: pw.TextStyle(
+                            fontSize: 13,
+                            fontWeight: pw.FontWeight.bold,
+                            color: PdfColor.fromHex('9C27B0'))),
+                    pw.SizedBox(height: 4),
+                    pw.Text(entry.value,
+                        style: const pw.TextStyle(
+                            fontSize: 11, color: PdfColors.grey800)),
+                    pw.SizedBox(height: 14),
+                    pw.Divider(color: PdfColors.grey300),
+                    pw.SizedBox(height: 8),
+                  ],
+                )),
+          ],
+        ));
+      }
+
+      // Footer on all pages
+      pdf.addPage(pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(40),
+        build: (pw.Context ctx) => pw.Center(
+          child: pw.Text(
+            'Generated by Kundli App · ${DateFormat('dd MMM yyyy').format(DateTime.now())}',
+            style: const pw.TextStyle(color: PdfColors.grey500, fontSize: 10),
+          ),
+        ),
+      ));
 
       await Printing.layoutPdf(
-        onLayout: (PdfPageFormat format) async => pdf.save(),
+        onLayout: (_) async => pdf.save(),
         name: 'Kundli_${widget.kundliInput.name}.pdf',
       );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('PDF Error: $e'),
+          SnackBar(
+              content: Text('PDF Error: $e'),
               backgroundColor: Colors.red),
         );
       }

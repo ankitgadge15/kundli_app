@@ -6,9 +6,7 @@ class LocationService {
   Future<List<LocationModel>> search(String query) async {
     query = query.trim();
 
-    if (query.length < 3) {
-      return [];
-    }
+    if (query.length < 2) return [];
 
     try {
       final url = Uri.https(
@@ -16,28 +14,25 @@ class LocationService {
         '/search',
         {
           'q': query,
-          'countrycodes': 'in',
           'format': 'jsonv2',
-          'limit': '5',
+          'limit': '8',
+          'addressdetails': '1',
+          'featuretype': 'city,town,village,state',
         },
       );
 
       final response = await http.get(
         url,
         headers: {
-          'User-Agent': 'kundli-app',
+          'User-Agent': 'kundli-app/1.0',
+          'Accept-Language': 'en',
         },
       );
 
-      if (response.statusCode != 200) {
-        return [];
-      }
+      if (response.statusCode != 200) return [];
 
       final data = jsonDecode(response.body) as List;
-
-      return data
-          .map((e) => LocationModel.fromJson(e))
-          .toList();
+      return data.map((e) => LocationModel.fromJson(e)).toList();
     } catch (e) {
       return [];
     }
