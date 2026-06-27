@@ -257,8 +257,11 @@ class _BirthDetailsScreenState extends State<BirthDetailsScreen> {
         slivers: [
           // ── Fancy header ──────────────────────────────────────────────────
           SliverAppBar(
-            expandedHeight: 200,
+            expandedHeight: 180,
             pinned: true,
+            centerTitle: true,
+            title: const Text('Birth Details',
+                style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration: const BoxDecoration(
@@ -268,35 +271,24 @@ class _BirthDetailsScreenState extends State<BirthDetailsScreen> {
                     end: Alignment.bottomCenter,
                   ),
                 ),
-                child: SafeArea(
+                child: const SafeArea(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const SizedBox(height: 16),
-                      const Text('🔯', style: TextStyle(fontSize: 48)),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Vedic Kundli',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
+                      SizedBox(height: 40),
+                      Text('🔯', style: TextStyle(fontSize: 44)),
+                      SizedBox(height: 8),
                       Text(
-                        'Enter your birth details',
+                        'Calculate Planetary Positions & Lagna',
                         style: TextStyle(
-                          color: Colors.purple.shade200,
-                          fontSize: 14,
+                          color: Colors.white54,
+                          fontSize: 12,
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
-              title: const Text('Birth Details',
-                  style: TextStyle(color: Colors.white, fontSize: 18)),
               collapseMode: CollapseMode.parallax,
             ),
           ),
