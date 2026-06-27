@@ -14,7 +14,7 @@ class SwissEphemerisService {
     // 1. Locate and load the Swiss Ephemeris FFI library
     final SwissEph swe;
     if (kIsWeb) {
-      swe = await SwissEph.load('assets/swisseph');
+      swe = await SwissEph.load('assets/assets/swisseph');
     } else {
       swe = await SwissEph.load();
     }
