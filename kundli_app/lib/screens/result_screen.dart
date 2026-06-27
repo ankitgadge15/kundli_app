@@ -378,7 +378,7 @@ class _ResultScreenState extends State<ResultScreen> {
     stackChildren.add(
       pw.CustomPaint(
         size: const PdfPoint(260, 260),
-        painter: (pw.Canvas canvas, PdfPoint size) {
+        painter: (canvas, size) {
           final strokeColor = PdfColor.fromHex('4A148C');
           canvas.setStrokeColor(strokeColor);
           canvas.setLineWidth(1.5);
