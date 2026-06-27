@@ -26,17 +26,17 @@ void main() async {
       exit(1);
     }
     
-    // Ensure web/ directory exists in project root
-    final webDir = Directory('web');
-    if (!webDir.existsSync()) {
-      webDir.createSync();
+    // Ensure assets/ directory exists in project root
+    final projectAssetsDir = Directory('assets');
+    if (!projectAssetsDir.existsSync()) {
+      projectAssetsDir.createSync();
     }
     
     // Copy files
-    jsFile.copySync('web/swisseph.js');
-    wasmFile.copySync('web/swisseph.wasm');
+    jsFile.copySync('assets/swisseph.js');
+    wasmFile.copySync('assets/swisseph.wasm');
     
-    print('Success: Copied swisseph.js and swisseph.wasm to web/ directory!');
+    print('Success: Copied swisseph.js and swisseph.wasm to project assets/ directory!');
   } catch (e) {
     print('An error occurred: $e');
     exit(1);
