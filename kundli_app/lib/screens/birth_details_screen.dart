@@ -252,8 +252,6 @@ class _BirthDetailsScreenState extends State<BirthDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     return Scaffold(
       body: CustomScrollView(
         slivers: [
@@ -299,7 +297,7 @@ class _BirthDetailsScreenState extends State<BirthDetailsScreen> {
               ),
               title: const Text('Birth Details',
                   style: TextStyle(color: Colors.white, fontSize: 18)),
-              collapseMode: CollapseMode.fade,
+              collapseMode: CollapseMode.parallax,
             ),
           ),
 
@@ -448,7 +446,7 @@ class _BirthDetailsScreenState extends State<BirthDetailsScreen> {
                             child: ListView.separated(
                               padding: EdgeInsets.zero,
                               itemCount: list.length,
-                              separatorBuilder: (_, __) =>
+                              separatorBuilder: (_, index) =>
                                   Divider(height: 1, color: Colors.purple.withOpacity(0.2)),
                               itemBuilder: (_, i) {
                                 final opt = list[i];

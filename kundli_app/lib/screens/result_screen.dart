@@ -8,6 +8,7 @@ import 'prediction_screen.dart';
 import '../models/kundli_input_model.dart';
 import '../models/kundli_result_model.dart';
 import '../models/planet.dart';
+import '../models/planet_position_model.dart';
 import '../services/groq_service.dart';
 
 const _zodiacSigns = [
@@ -17,8 +18,30 @@ const _zodiacSigns = [
 
 int _signIndex(String sign) => _zodiacSigns.indexOf(sign);
 
-List<List<String>> _buildHousePlanets(int lagnaIdx) {
-  return []; // Simplified for PDF — planet placement is shown in house table
+List<List<String>> _buildHousePlanets(int lagnaSignIdx, List<PlanetPosition> planets) {
+  final houseContents = List.generate(12, (_) => <String>[]);
+  houseContents[0].add('As');
+  for (final planet in planets) {
+    final signIdx = _signIndex(planet.sign);
+    if (signIdx == -1) continue;
+    final houseNum = (signIdx - lagnaSignIdx + 12) % 12;
+    houseContents[houseNum].add(_planetAbbr(planet.planet));
+  }
+  return houseContents;
+}
+
+String _planetAbbr(Planet p) {
+  switch (p) {
+    case Planet.sun:     return 'Su';
+    case Planet.moon:    return 'Mo';
+    case Planet.mars:    return 'Ma';
+    case Planet.mercury: return 'Me';
+    case Planet.jupiter: return 'Ju';
+    case Planet.venus:   return 'Ve';
+    case Planet.saturn:  return 'Sa';
+    case Planet.rahu:    return 'Ra';
+    case Planet.ketu:    return 'Ke';
+  }
 }
 
 class ResultScreen extends StatefulWidget {
@@ -182,7 +205,7 @@ class _ResultScreenState extends State<ResultScreen> {
 
       // ── Page 2: Kundli Chart (House Details) ─────────────────────────────
       final lagnaIdx = _signIndex(widget.kundliResult.ascendant);
-      final housePlanets = _buildHousePlanets(lagnaIdx);
+      final housePlanets = _buildHousePlanets(lagnaIdx, widget.kundliResult.planets);
 
       pdf.addPage(pw.MultiPage(
         pageFormat: PdfPageFormat.a4,

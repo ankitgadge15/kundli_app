@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'dart:math';
 import '../models/kundli_result_model.dart';
 import '../models/kundli_input_model.dart';
 import '../models/planet.dart';
-import '../models/planet_position_model.dart';
 
 class KundliChartScreen extends StatelessWidget {
   final KundliResult kundliResult;
@@ -24,35 +22,6 @@ class KundliChartScreen extends StatelessWidget {
   static const _signs = [
     'Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo',
     'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'
-  ];
-
-  // North Indian house grid positions (center x,y as fraction of chart size)
-  // Houses are fixed in NI chart layout; sign number shifts based on lagna
-  static const _houseOffsets = [
-    // house 1 (Lagna) - top center diamond
-    Offset(0.5, 0.17),
-    // house 2 - top right
-    Offset(0.75, 0.28),
-    // house 3 - right
-    Offset(0.83, 0.5),
-    // house 4 - bottom right
-    Offset(0.75, 0.72),
-    // house 5 - bottom center
-    Offset(0.5, 0.83),
-    // house 6 - bottom left
-    Offset(0.25, 0.72),
-    // house 7 - left
-    Offset(0.17, 0.5),
-    // house 8 - top left
-    Offset(0.25, 0.28),
-    // house 9 - inner top-right
-    Offset(0.65, 0.38),
-    // house 10 - inner bottom-right
-    Offset(0.65, 0.62),
-    // house 11 - inner bottom-left
-    Offset(0.35, 0.62),
-    // house 12 - inner top-left
-    Offset(0.35, 0.38),
   ];
 
   int _signIndex(String signName) => _signs.indexOf(signName);
