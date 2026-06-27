@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'kundli_chart_screen.dart';
 import '../models/kundli_input_model.dart';
 import '../models/kundli_result_model.dart';
+import '../models/planet.dart';
 // import '../services/astrology_service.dart';
 
 class ResultScreen extends StatelessWidget {
@@ -132,6 +133,108 @@ class ResultScreen extends StatelessWidget {
               ),
             ),
 
+            const SizedBox(height: 20),
+
+            // Planetary Positions
+            Card(
+              elevation: 2,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.brightness_5),
+                        SizedBox(width: 8),
+                        Text(
+                          "Planetary Positions",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 24),
+                    Table(
+                      columnWidths: const {
+                        0: FlexColumnWidth(2),
+                        1: FlexColumnWidth(2),
+                        2: FlexColumnWidth(3),
+                      },
+                      border: TableBorder(
+                        horizontalInside: BorderSide(
+                          color: Colors.grey.shade200,
+                          width: 1,
+                        ),
+                      ),
+                      children: [
+                        TableRow(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: Text(
+                                "Planet",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey.shade700,
+                                ),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: Text(
+                                "Sign",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey.shade700,
+                                ),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: Text(
+                                "Position",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey.shade700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        ...kundliResult.planets.map((p) {
+                          return TableRow(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                child: Text(
+                                  _getPlanetName(p.planet),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                child: Text(p.sign),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                child: Text(
+                                  _formatDegrees(p.longitude),
+                                ),
+                              ),
+                            ],
+                          );
+                        }).toList(),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
             const SizedBox(height: 32),
 
             SizedBox(
@@ -164,6 +267,30 @@ class ResultScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _getPlanetName(Planet planet) {
+    switch (planet) {
+      case Planet.sun: return "Sun";
+      case Planet.moon: return "Moon";
+      case Planet.mars: return "Mars";
+      case Planet.mercury: return "Mercury";
+      case Planet.jupiter: return "Jupiter";
+      case Planet.venus: return "Venus";
+      case Planet.saturn: return "Saturn";
+      case Planet.rahu: return "Rahu";
+      case Planet.ketu: return "Ketu";
+    }
+  }
+
+  String _formatDegrees(double decimalDegrees) {
+    double degInSign = decimalDegrees % 30.0;
+    int d = degInSign.floor();
+    double minPart = (degInSign - d) * 60.0;
+    int m = minPart.floor();
+    double secPart = (minPart - m) * 60.0;
+    int s = secPart.round();
+    return "$d° ${m.toString().padLeft(2, '0')}' ${s.toString().padLeft(2, '0')}\"";
   }
 
   static Widget _detailRow(String title, String value) {

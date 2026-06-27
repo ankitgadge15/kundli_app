@@ -46,6 +46,67 @@
     double? selectedLongitude;
     String placeInputValue = '';
 
+    double selectedTimezoneOffset = 5.5; // Default to IST (+5:30)
+
+    final List<Map<String, dynamic>> timezoneOffsets = [
+      {"name": "GMT-12:00 (IDLW)", "value": -12.0},
+      {"name": "GMT-11:00 (SST)", "value": -11.0},
+      {"name": "GMT-10:00 (HST)", "value": -10.0},
+      {"name": "GMT-09:30 (MIT)", "value": -9.5},
+      {"name": "GMT-09:00 (AKST)", "value": -9.0},
+      {"name": "GMT-08:00 (PST)", "value": -8.0},
+      {"name": "GMT-07:00 (MST)", "value": -7.0},
+      {"name": "GMT-06:00 (CST)", "value": -6.0},
+      {"name": "GMT-05:00 (EST)", "value": -5.0},
+      {"name": "GMT-04:00 (AST)", "value": -4.0},
+      {"name": "GMT-03:30 (NST)", "value": -3.5},
+      {"name": "GMT-03:00 (BRT)", "value": -3.0},
+      {"name": "GMT-02:00 (FNT)", "value": -2.0},
+      {"name": "GMT-01:00 (AZOT)", "value": -1.0},
+      {"name": "GMT+00:00 (GMT/UTC)", "value": 0.0},
+      {"name": "GMT+01:00 (CET)", "value": 1.0},
+      {"name": "GMT+02:00 (EET)", "value": 2.0},
+      {"name": "GMT+03:00 (MSK)", "value": 3.0},
+      {"name": "GMT+03:30 (IRT)", "value": 3.5},
+      {"name": "GMT+04:00 (GST)", "value": 4.0},
+      {"name": "GMT+04:30 (AFT)", "value": 4.5},
+      {"name": "GMT+05:00 (PKT)", "value": 5.0},
+      {"name": "GMT+05:30 (IST)", "value": 5.5},
+      {"name": "GMT+05:45 (NPT)", "value": 5.75},
+      {"name": "GMT+06:00 (BST)", "value": 6.0},
+      {"name": "GMT+06:30 (MMT)", "value": 6.5},
+      {"name": "GMT+07:00 (ICT)", "value": 7.0},
+      {"name": "GMT+08:00 (SGT/CST)", "value": 8.0},
+      {"name": "GMT+08:45 (ACWST)", "value": 8.75},
+      {"name": "GMT+09:00 (JST)", "value": 9.0},
+      {"name": "GMT+09:30 (ACST)", "value": 9.5},
+      {"name": "GMT+10:00 (AEST)", "value": 10.0},
+      {"name": "GMT+10:30 (LHST)", "value": 10.5},
+      {"name": "GMT+11:00 (SBT)", "value": 11.0},
+      {"name": "GMT+11:30 (NFT)", "value": 11.5},
+      {"name": "GMT+12:00 (NZST)", "value": 12.0},
+      {"name": "GMT+12:45 (CHAST)", "value": 12.75},
+      {"name": "GMT+13:00 (TKT)", "value": 13.0},
+      {"name": "GMT+14:00 (LINT)", "value": 14.0},
+    ];
+
+    @override
+    void initState() {
+      super.initState();
+      final localOffset = DateTime.now().timeZoneOffset.inMinutes / 60.0;
+      selectedTimezoneOffset = localOffset;
+      if (!timezoneOffsets.any((element) => element["value"] == localOffset)) {
+        final sign = localOffset >= 0 ? "+" : "-";
+        final absVal = localOffset.abs();
+        final h = absVal.floor();
+        final m = ((absVal - h) * 60).round();
+        final mStr = m.toString().padLeft(2, '0');
+        final name = "GMT$sign$h:$mStr (Local)";
+        timezoneOffsets.add({"name": name, "value": localOffset});
+        timezoneOffsets.sort((a, b) => (a["value"] as double).compareTo(b["value"] as double));
+      }
+    }
+
     void showError(String message) {
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
@@ -246,6 +307,7 @@ void dispose() {
     selectedTime!.hour,
     selectedTime!.minute,
   ),
+  timezoneOffset: selectedTimezoneOffset,
   place: locationMode == LocationInputMode.place
       ? selectedDisplayName ?? ""
       : "${latDegController.text}°${latMinController.text}' $latitudeDirection, "
@@ -311,6 +373,30 @@ final kundliResult =
                         ? "Select Birth Time"
                         : selectedTime!.format(context),
                 ),
+                ),
+
+                const SizedBox(height: 16),
+
+                DropdownButtonFormField<double>(
+                  value: selectedTimezoneOffset,
+                  decoration: const InputDecoration(
+                    labelText: "Timezone Offset",
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.public),
+                  ),
+                  items: timezoneOffsets.map((offset) {
+                    return DropdownMenuItem<double>(
+                      value: offset["value"] as double,
+                      child: Text(offset["name"] as String),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() {
+                        selectedTimezoneOffset = value;
+                      });
+                    }
+                  },
                 ),
 
                 const SizedBox(height: 16),
