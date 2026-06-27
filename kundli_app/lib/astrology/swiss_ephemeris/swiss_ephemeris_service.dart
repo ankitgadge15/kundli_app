@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:swisseph/swisseph.dart';
 import '../models/swiss_result.dart';
 import '../models/planetary_position.dart';
@@ -12,12 +11,7 @@ class SwissEphemerisService {
     required double longitude,
   }) async {
     // 1. Locate and load the Swiss Ephemeris FFI library
-    final SwissEph swe;
-    if (kIsWeb) {
-      swe = await SwissEph.load('assets/packages/swisseph/assets/swisseph');
-    } else {
-      swe = await SwissEph.load();
-    }
+    final swe = await SwissEph.load();
 
     // 2. Convert local birth date-time to UTC
     final offsetMinutes = (timezoneOffset * 60).round();
