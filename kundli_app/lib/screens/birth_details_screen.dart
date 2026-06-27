@@ -47,6 +47,7 @@
     String placeInputValue = '';
 
     double selectedTimezoneOffset = 5.5; // Default to IST (+5:30)
+    bool isCalculating = false;
 
     final List<Map<String, dynamic>> timezoneOffsets = [
       {"name": "GMT-12:00 (IDLW)", "value": -12.0},
@@ -227,6 +228,8 @@ void dispose() {
     }
 
     Future<void> generateKundli() async {
+        if (isCalculating) return;
+
         double latitude;
         double longitude;
   if (nameController.text.trim().isEmpty) {
@@ -298,39 +301,52 @@ void dispose() {
 }
   }
 
-  final kundliInput = KundliInput(
-  name: nameController.text,
-  birthDateTime: DateTime(
-    selectedDate!.year,
-    selectedDate!.month,
-    selectedDate!.day,
-    selectedTime!.hour,
-    selectedTime!.minute,
-  ),
-  timezoneOffset: selectedTimezoneOffset,
-  place: locationMode == LocationInputMode.place
-      ? selectedDisplayName ?? ""
-      : "${latDegController.text}°${latMinController.text}' $latitudeDirection, "
-        "${longDegController.text}°${longMinController.text}' $longitudeDirection",
-    latitude: latitude,
-    longitude: longitude,
-);
-final astrologyService = AstrologyService();
+  setState(() {
+    isCalculating = true;
+  });
 
-final kundliResult =
-    await astrologyService.generateKundli(
-      kundliInput,
+  try {
+    final kundliInput = KundliInput(
+      name: nameController.text,
+      birthDateTime: DateTime(
+        selectedDate!.year,
+        selectedDate!.month,
+        selectedDate!.day,
+        selectedTime!.hour,
+        selectedTime!.minute,
+      ),
+      timezoneOffset: selectedTimezoneOffset,
+      place: locationMode == LocationInputMode.place
+          ? selectedDisplayName ?? ""
+          : "${latDegController.text}°${latMinController.text}' $latitudeDirection, "
+            "${longDegController.text}°${longMinController.text}' $longitudeDirection",
+      latitude: latitude,
+      longitude: longitude,
     );
 
-  Navigator.push(
-  context,
-  MaterialPageRoute(
-    builder: (_) => ResultScreen(
-      kundliInput: kundliInput,
-      kundliResult: kundliResult,
-    ),
-  ),
-);
+    final astrologyService = AstrologyService();
+    final kundliResult = await astrologyService.generateKundli(kundliInput);
+
+    if (!mounted) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ResultScreen(
+          kundliInput: kundliInput,
+          kundliResult: kundliResult,
+        ),
+      ),
+    );
+  } catch (e) {
+    showError("Error generating Kundli: $e");
+  } finally {
+    if (mounted) {
+      setState(() {
+        isCalculating = false;
+      });
+    }
+  }
 }
 
     @override
@@ -636,8 +652,17 @@ if (locationMode == LocationInputMode.coordinates)
                 SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                    onPressed: generateKundli,
-                    child: const Text("Generate Kundli"),
+                    onPressed: isCalculating ? null : generateKundli,
+                    child: isCalculating
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text("Generate Kundli"),
                 ),
                 ),
             ],

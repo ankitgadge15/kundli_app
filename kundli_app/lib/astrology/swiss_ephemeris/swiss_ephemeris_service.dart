@@ -11,7 +11,7 @@ class SwissEphemerisService {
     required double longitude,
   }) async {
     // 1. Locate and load the Swiss Ephemeris FFI library
-    final swe = SwissEph.find();
+    final swe = await SwissEph.load();
 
     // 2. Convert local birth date-time to UTC
     final offsetMinutes = (timezoneOffset * 60).round();
