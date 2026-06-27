@@ -196,14 +196,14 @@ class _ResultScreenState extends State<ResultScreen> {
               ...widget.kundliResult.planets.map((p) => pw.TableRow(children: [
                     _pdfCell(_getPlanetName(p.planet)),
                     _pdfCell(p.sign),
-                    _pdfCell(_formatDegrees(p.longitude)),
+                    _pdfCell(_formatDegreesPdf(p.longitude)),
                   ])),
             ],
           ),
         ],
       ));
 
-      // ── Page 2: Kundli Chart (House Details) ─────────────────────────────
+      // ── Page 2: Kundli Chart (Graphical & House Details) ────────────────
       final lagnaIdx = _signIndex(widget.kundliResult.ascendant);
       final housePlanets = _buildHousePlanets(lagnaIdx, widget.kundliResult.planets);
 
@@ -217,7 +217,7 @@ class _ResultScreenState extends State<ResultScreen> {
               color: PdfColor.fromHex('4A148C'),
               borderRadius: pw.BorderRadius.circular(8),
             ),
-            child: pw.Text('KUNDLI CHART — HOUSE DETAILS',
+            child: pw.Text('KUNDLI CHART & HOUSE DETAILS',
                 style: pw.TextStyle(
                     color: PdfColors.white,
                     fontSize: 18,
@@ -231,7 +231,13 @@ class _ResultScreenState extends State<ResultScreen> {
             'Nakshatra: ${widget.kundliResult.nakshatra}',
             style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey700),
           ),
-          pw.SizedBox(height: 16),
+          pw.SizedBox(height: 20),
+
+          // Graphical Stacked Diamond Chart
+          pw.Center(
+            child: _buildPdfChartStacked(lagnaIdx, housePlanets),
+          ),
+          pw.SizedBox(height: 24),
 
           pw.Table(
             border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
@@ -257,7 +263,7 @@ class _ResultScreenState extends State<ResultScreen> {
                 return pw.TableRow(children: [
                   _pdfCell('${i + 1}'),
                   _pdfCell(sign),
-                  _pdfCell(planets.isEmpty ? '—' : planets.join(', ')),
+                  _pdfCell(planets.isEmpty ? '-' : planets.join(', ')),
                 ]);
               }),
             ],
@@ -340,6 +346,118 @@ class _ResultScreenState extends State<ResultScreen> {
     } finally {
       if (mounted) setState(() => _isGeneratingPdf = false);
     }
+  }
+
+  pw.Widget _buildPdfChartStacked(int lagnaSignIdx, List<List<String>> housePlanets) {
+    final w = 260.0;
+    final h = 260.0;
+
+    final centers = [
+      const PdfPoint(130, 45),   // H1 top center
+      const PdfPoint(195, 65),   // H2 top right
+      const PdfPoint(215, 130),  // H3 right
+      const PdfPoint(195, 195),  // H4 bottom right
+      const PdfPoint(130, 215),  // H5 bottom center
+      const PdfPoint(65, 195),   // H6 bottom left
+      const PdfPoint(45, 130),   // H7 left
+      const PdfPoint(65, 65),    // H8 top left
+      const PdfPoint(165, 95),   // H9 inner top-right
+      const PdfPoint(165, 165),  // H10 inner bottom-right
+      const PdfPoint(95, 165),   // H11 inner bottom-left
+      const PdfPoint(95, 95),    // H12 inner top-left
+    ];
+
+    final signAbbrs = [
+      'Ari', 'Tau', 'Gem', 'Can', 'Leo', 'Vir',
+      'Lib', 'Sco', 'Sag', 'Cap', 'Aqu', 'Pis'
+    ];
+
+    final List<pw.Widget> stackChildren = [];
+
+    // 1. Add Custom Paint for the grid lines
+    stackChildren.add(
+      pw.CustomPaint(
+        size: const PdfPoint(260, 260),
+        painter: (pw.Canvas canvas, PdfPoint size) {
+          final strokeColor = PdfColor.fromHex('4A148C');
+          canvas.setStrokeColor(strokeColor);
+          canvas.setLineWidth(1.5);
+
+          // Outer square
+          canvas.drawRect(0, 0, size.x, size.y);
+          canvas.strokePath();
+
+          // Inner diamond
+          canvas.moveTo(size.x / 2, 0);
+          canvas.lineTo(size.x, size.y / 2);
+          canvas.lineTo(size.x / 2, size.y);
+          canvas.lineTo(0, size.y / 2);
+          canvas.closePath();
+          canvas.strokePath();
+
+          // Diagonals
+          canvas.moveTo(0, 0); canvas.lineTo(size.x / 2, size.y / 2);
+          canvas.moveTo(size.x, 0); canvas.lineTo(size.x / 2, size.y / 2);
+          canvas.moveTo(size.x, size.y); canvas.lineTo(size.x / 2, size.y / 2);
+          canvas.moveTo(0, size.y); canvas.lineTo(size.x / 2, size.y / 2);
+          canvas.strokePath();
+        },
+      ),
+    );
+
+    // 2. Add text overlays (House numbers, signs, planets)
+    for (int i = 0; i < 12; i++) {
+      final center = centers[i];
+      final signIdx = (lagnaSignIdx + i) % 12;
+      final signAbbr = signAbbrs[signIdx];
+      final planets = housePlanets[i];
+
+      // House number (very small, grey, offset top-left)
+      stackChildren.add(
+        pw.Positioned(
+          left: center.x - 22,
+          top: center.y - 22,
+          child: pw.Text('${i + 1}', style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey500)),
+        ),
+      );
+
+      // Sign name and planets stacked
+      stackChildren.add(
+        pw.Positioned(
+          left: center.x - 30,
+          top: center.y - 12,
+          child: pw.Container(
+            width: 60,
+            alignment: pw.Alignment.center,
+            child: pw.Column(
+              mainAxisSize: pw.MainAxisSize.min,
+              children: [
+                pw.Text(signAbbr, style: pw.TextStyle(fontSize: 8, color: PdfColor.fromHex('7B1FA2'), fontWeight: pw.FontWeight.bold)),
+                if (planets.isNotEmpty) ...[
+                  pw.SizedBox(height: 2),
+                  pw.Text(planets.join(' '), style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColors.black)),
+                ],
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return pw.Container(
+      width: w,
+      height: h,
+      child: pw.Stack(children: stackChildren),
+    );
+  }
+
+  String _formatDegreesPdf(double decimalDegrees) {
+    final degInSign = decimalDegrees % 30.0;
+    final d = degInSign.floor();
+    final minPart = (degInSign - d) * 60.0;
+    final m = minPart.floor();
+    final s = ((minPart - m) * 60.0).round();
+    return "${d}d ${m}m ${s}s";
   }
 
   pw.Widget _pdfSection(String title, List<List<String>> rows) {
